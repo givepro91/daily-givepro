@@ -1,5 +1,8 @@
+"use client";
+
 import Image from "next/image";
 import { AffiliateProduct } from "@/lib/types";
+import { trackAffiliateClick } from "@/lib/analytics";
 
 const PLATFORM_LABELS: Record<string, string> = {
   coupang: "Coupang",
@@ -24,12 +27,17 @@ export default function ProductCard({
   const label = PLATFORM_LABELS[product.platform] || "Buy";
   const trackedUrl = appendUtm(product.url, product.name);
 
+  const handleClick = () => {
+    trackAffiliateClick(product.name, product.platform);
+  };
+
   if (variant === "inline") {
     return (
       <a
         href={trackedUrl}
         target="_blank"
         rel="nofollow sponsored noopener noreferrer"
+        onClick={handleClick}
         className="my-2 flex items-center gap-2 rounded border border-gray-200 px-3 py-2 text-sm hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-800"
       >
         <span className="font-medium">{product.name}</span>
@@ -68,6 +76,7 @@ export default function ProductCard({
           href={trackedUrl}
           target="_blank"
           rel="nofollow sponsored noopener noreferrer"
+          onClick={handleClick}
           className="mt-2 inline-block rounded bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700"
         >
           {label}
@@ -105,6 +114,7 @@ export default function ProductCard({
               href={trackedUrl}
               target="_blank"
               rel="nofollow sponsored noopener noreferrer"
+              onClick={handleClick}
               className="inline-block rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
             >
               {label}
@@ -113,8 +123,7 @@ export default function ProductCard({
         </div>
       </div>
       <p className="border-t border-gray-200 bg-gray-50 px-4 py-2 text-xs text-gray-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400">
-        This post contains affiliate links. A small commission may be earned at
-        no extra cost to you.
+        이 글에는 제휴 링크가 포함되어 있습니다. 링크를 통해 구매하시면 소정의 수수료가 지급되며, 구매 가격에는 영향이 없습니다.
       </p>
     </div>
   );

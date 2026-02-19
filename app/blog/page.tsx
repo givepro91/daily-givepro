@@ -6,9 +6,16 @@ import AdBanner from "@/components/ads/AdBanner";
 import Link from "next/link";
 import type { Metadata } from "next";
 
+const SITE_URL =
+  process.env.NEXT_PUBLIC_SITE_URL || "https://daily-givepro.vercel.app";
+
 export const metadata: Metadata = {
   title: "Blog",
-  description: "All blog posts",
+  description:
+    "개발 기술, 제품 리뷰, 실전 튜토리얼, 일상 이야기까지. Daily Givepro의 모든 블로그 글을 한눈에 확인하세요.",
+  alternates: {
+    canonical: `${SITE_URL}/blog`,
+  },
 };
 
 export default async function BlogPage({

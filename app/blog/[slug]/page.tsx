@@ -41,7 +41,7 @@ export async function generateMetadata({
       modifiedTime: post.updatedDate || post.date,
       images: post.thumbnail
         ? [{ url: post.thumbnail }]
-        : [{ url: "/og/default.png" }],
+        : [{ url: "/og-default.png" }],
     },
     alternates: {
       canonical: `${SITE_URL}/blog/${slug}`,

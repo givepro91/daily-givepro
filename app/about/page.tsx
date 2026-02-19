@@ -1,8 +1,20 @@
 import type { Metadata } from "next";
 
+const SITE_URL =
+  process.env.NEXT_PUBLIC_SITE_URL || "https://daily-givepro.vercel.app";
+
 export const metadata: Metadata = {
   title: "About",
-  description: "Daily Givepro 블로그 소개",
+  description:
+    "Daily Givepro 블로그를 운영하는 개발자 소개. 테크, 리뷰, 튜토리얼, 일상 이야기를 공유합니다.",
+  openGraph: {
+    title: "About | Daily Givepro",
+    description: "Daily Givepro 블로그를 운영하는 개발자 소개.",
+    url: `${SITE_URL}/about`,
+  },
+  alternates: {
+    canonical: `${SITE_URL}/about`,
+  },
 };
 
 export default function AboutPage() {

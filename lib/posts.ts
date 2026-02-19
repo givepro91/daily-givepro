@@ -37,11 +37,15 @@ function parsePost(fileName: string): Post {
   };
 }
 
+let cachedPosts: Post[] | null = null;
+
 export function getAllPosts(): Post[] {
-  return getPostFiles()
+  if (cachedPosts) return cachedPosts;
+  cachedPosts = getPostFiles()
     .map(parsePost)
     .filter((post) => post.published)
     .sort((a, b) => (a.date > b.date ? -1 : 1));
+  return cachedPosts;
 }
 
 export function getPostBySlug(slug: string): Post | null {

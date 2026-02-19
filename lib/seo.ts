@@ -3,6 +3,8 @@ import { Post } from "./types";
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://daily-givepro.vercel.app";
 const SITE_NAME = process.env.NEXT_PUBLIC_SITE_NAME || "Daily Givepro";
 
+const AUTHOR_NAME = process.env.NEXT_PUBLIC_AUTHOR_NAME || "Daily Givepro";
+
 export function generateArticleJsonLd(post: Post) {
   return {
     "@context": "https://schema.org",
@@ -13,7 +15,7 @@ export function generateArticleJsonLd(post: Post) {
     dateModified: post.updatedDate || post.date,
     author: {
       "@type": "Person",
-      name: "Author",
+      name: AUTHOR_NAME,
       url: `${SITE_URL}/about`,
     },
     publisher: {
@@ -21,12 +23,12 @@ export function generateArticleJsonLd(post: Post) {
       name: SITE_NAME,
       logo: {
         "@type": "ImageObject",
-        url: `${SITE_URL}/logo.png`,
+        url: `${SITE_URL}/logo.svg`,
       },
     },
     image: post.thumbnail
       ? `${SITE_URL}${post.thumbnail}`
-      : `${SITE_URL}/og/default.png`,
+      : `${SITE_URL}/og-default.png`,
     mainEntityOfPage: `${SITE_URL}/blog/${post.slug}`,
   };
 }

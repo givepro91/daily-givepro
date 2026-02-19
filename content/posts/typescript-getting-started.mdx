@@ -1,0 +1,236 @@
+---
+title: "TypeScript를 써야 하는 이유와 시작하기"
+description: "JavaScript 개발자가 TypeScript를 도입해야 하는 이유와 프로젝트에 TypeScript를 적용하는 방법을 단계별로 설명합니다."
+date: "2026-02-11"
+category: "tech"
+tags: ["TypeScript", "JavaScript", "프로그래밍", "웹개발"]
+enableAds: true
+---
+
+TypeScript는 JavaScript에 정적 타입 시스템을 추가한 프로그래밍 언어입니다. Microsoft가 2012년에 발표한 이후 꾸준히 성장하여, 2026년 현재 대부분의 프론트엔드 프로젝트에서 사실상 표준으로 사용되고 있습니다. 이 글에서는 왜 TypeScript를 사용해야 하는지, 그리고 어떻게 시작하는지를 실용적인 관점에서 설명합니다.
+
+## 왜 TypeScript인가?
+
+### 버그를 미리 잡아줍니다
+
+JavaScript의 가장 큰 문제점 중 하나는 런타임에서야 에러를 발견할 수 있다는 것입니다.
+
+```javascript
+// JavaScript - 실행해봐야 에러를 발견
+function greet(user) {
+  return `Hello, ${user.name.toUpperCase()}!`;
+}
+
+greet({ nama: "Jay" }); // 오타! 런타임 에러 발생
+```
+
+TypeScript에서는 이 오류를 코드 작성 시점에 발견합니다.
+
+```typescript
+interface User {
+  name: string;
+  email: string;
+}
+
+function greet(user: User): string {
+  return `Hello, ${user.name.toUpperCase()}!`;
+}
+
+greet({ nama: "Jay" }); // 컴파일 에러! 'nama'는 'User' 타입에 없음
+```
+
+에디터에서 빨간 줄로 바로 표시되므로 실행하기 전에 수정할 수 있습니다.
+
+### 자동완성이 강력해집니다
+
+TypeScript의 타입 정보 덕분에 에디터의 자동완성이 매우 정확해집니다. 객체의 속성, 함수의 파라미터, 반환값을 자동으로 제안해주므로 문서를 매번 확인할 필요가 줄어듭니다.
+
+### 리팩토링이 안전해집니다
+
+함수 이름을 변경하거나, 파라미터를 추가하거나, 데이터 구조를 수정할 때 TypeScript가 영향 받는 모든 곳을 알려줍니다. 대규모 코드베이스에서 리팩토링할 때 "어딘가에서 깨질 수 있다"는 불안감 없이 작업할 수 있습니다.
+
+### 문서 역할을 합니다
+
+타입 정의 자체가 코드의 문서 역할을 합니다.
+
+```typescript
+interface BlogPost {
+  title: string;
+  description: string;
+  date: string;
+  category: "tech" | "review" | "tutorial" | "life";
+  tags: string[];
+  published: boolean;
+  thumbnail?: string;  // 선택적 필드
+}
+```
+
+이 타입 정의만 보면 블로그 글이 어떤 구조인지 바로 이해할 수 있습니다.
+
+<InArticleAd />
+
+## TypeScript 시작하기
+
+### 프로젝트에 TypeScript 추가
+
+기존 JavaScript 프로젝트에 TypeScript를 추가하는 것은 간단합니다.
+
+```bash
+npm install -D typescript @types/node
+npx tsc --init
+```
+
+`tsconfig.json` 파일이 생성됩니다. 주요 설정을 확인합니다.
+
+```json
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "outDir": "./dist",
+    "rootDir": "./src"
+  },
+  "include": ["src/**/*"]
+}
+```
+
+### Next.js에서는 더 쉽습니다
+
+Next.js 프로젝트에서는 별도 설정 없이 바로 TypeScript를 사용할 수 있습니다.
+
+```bash
+npx create-next-app@latest my-app --typescript
+```
+
+## 핵심 타입 알아보기
+
+### 기본 타입
+
+```typescript
+// 원시 타입
+const name: string = "Jay";
+const age: number = 30;
+const isDeveloper: boolean = true;
+
+// 배열
+const tags: string[] = ["TypeScript", "React"];
+const scores: number[] = [95, 88, 72];
+
+// 객체
+const user: { name: string; age: number } = {
+  name: "Jay",
+  age: 30,
+};
+```
+
+### Interface와 Type
+
+객체의 구조를 정의할 때 `interface`와 `type` 두 가지 방법이 있습니다.
+
+```typescript
+// Interface - 객체 구조 정의에 적합
+interface User {
+  name: string;
+  email: string;
+  age?: number; // 선택적 필드
+}
+
+// Type - 유니온, 인터섹션 등 복잡한 타입에 적합
+type Status = "active" | "inactive" | "pending";
+type ApiResponse<T> = {
+  data: T;
+  error: string | null;
+};
+```
+
+### 유니온 타입
+
+```typescript
+// 여러 타입 중 하나
+type Category = "tech" | "review" | "tutorial" | "life";
+
+function getLabel(category: Category): string {
+  switch (category) {
+    case "tech": return "기술";
+    case "review": return "리뷰";
+    case "tutorial": return "튜토리얼";
+    case "life": return "일상";
+  }
+}
+```
+
+### 제네릭
+
+재사용 가능한 타입을 만들 때 제네릭을 사용합니다.
+
+```typescript
+// API 응답의 공통 구조
+interface ApiResponse<T> {
+  data: T;
+  status: number;
+  message: string;
+}
+
+// 사용할 때 구체적인 타입을 지정
+const postResponse: ApiResponse<BlogPost> = await fetchPost(slug);
+const userResponse: ApiResponse<User> = await fetchUser(id);
+```
+
+## 실전 패턴
+
+### 타입 가드
+
+런타임에서 타입을 좁혀나가는 패턴입니다.
+
+```typescript
+function processInput(input: string | number) {
+  if (typeof input === "string") {
+    // 이 블록에서 input은 string
+    return input.toUpperCase();
+  }
+  // 여기서 input은 number
+  return input * 2;
+}
+```
+
+### Utility Types
+
+TypeScript 내장 유틸리티 타입을 활용하면 타입을 변환할 수 있습니다.
+
+```typescript
+interface User {
+  name: string;
+  email: string;
+  age: number;
+}
+
+// 모든 필드를 선택적으로
+type PartialUser = Partial<User>;
+
+// 특정 필드만 선택
+type UserPreview = Pick<User, "name" | "email">;
+
+// 특정 필드 제외
+type UserWithoutAge = Omit<User, "age">;
+
+// 모든 필드를 읽기 전용으로
+type ReadonlyUser = Readonly<User>;
+```
+
+## 점진적 도입 전략
+
+기존 JavaScript 프로젝트에 TypeScript를 한번에 도입할 필요는 없습니다.
+
+1. **`tsconfig.json`의 `allowJs: true` 설정**: JS와 TS 파일을 함께 사용
+2. **새 파일은 `.ts`로 생성**: 기존 파일은 그대로 두고 새 파일만 TypeScript로 작성
+3. **중요한 파일부터 전환**: 타입 정의, 유틸리티 함수, API 관련 코드를 우선 전환
+4. **`strict: false`로 시작**: 점차 strict 옵션을 활성화
+
+## 마무리
+
+TypeScript의 학습 곡선은 생각보다 가파르지 않습니다. JavaScript를 알고 있다면 기본 타입 문법만 추가로 배우면 됩니다. 타입 시스템의 고급 기능은 필요할 때 하나씩 배워가면 됩니다.
+
+가장 중요한 것은 시작하는 것입니다. 간단한 개인 프로젝트에서 TypeScript를 써보면서 타입의 편리함을 직접 경험해보세요. 한번 익숙해지면 다시 순수 JavaScript로 돌아가기 어려울 것입니다.

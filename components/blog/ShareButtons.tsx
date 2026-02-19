@@ -1,11 +1,14 @@
 "use client";
 
+import { useState } from "react";
+
 interface ShareButtonsProps {
   url: string;
   title: string;
 }
 
 export default function ShareButtons({ url, title }: ShareButtonsProps) {
+  const [copied, setCopied] = useState(false);
   const encodedUrl = encodeURIComponent(url);
   const encodedTitle = encodeURIComponent(title);
 
@@ -29,6 +32,8 @@ export default function ShareButtons({ url, title }: ShareButtonsProps) {
 
   const handleCopyLink = async () => {
     await navigator.clipboard.writeText(url);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
   };
 
   return (
@@ -51,7 +56,7 @@ export default function ShareButtons({ url, title }: ShareButtonsProps) {
         className="flex h-8 items-center rounded-full bg-gray-100 px-3 text-xs text-gray-600 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700"
         aria-label="Copy link"
       >
-        Link
+        {copied ? "Copied!" : "Link"}
       </button>
     </div>
   );

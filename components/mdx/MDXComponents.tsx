@@ -12,15 +12,7 @@ function slugify(text: React.ReactNode): string {
 }
 
 export const mdxComponents: MDXComponentsType = {
-  h1: ({ children, ...props }) => (
-    <h1
-      id={slugify(children)}
-      className="mt-8 text-3xl font-bold"
-      {...props}
-    >
-      {children}
-    </h1>
-  ),
+  h1: () => null,
   h2: ({ children, ...props }) => (
     <h2 id={slugify(children)} {...props}>
       {children}
@@ -51,7 +43,9 @@ export const mdxComponents: MDXComponentsType = {
       alt={alt || ""}
       width={768}
       height={432}
+      sizes="(max-width: 768px) 100vw, 768px"
       className="rounded-lg"
+      style={{ width: "100%", height: "auto" }}
       {...props}
     />
   ),

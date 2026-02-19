@@ -9,7 +9,7 @@ export default function Header() {
         <Link href="/" className="text-xl font-bold text-gray-900 dark:text-white">
           Daily Givepro
         </Link>
-        <nav className="flex items-center gap-6">
+        <nav aria-label="Main navigation" className="flex items-center gap-6">
           <Link
             href="/blog"
             className="text-sm text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white"

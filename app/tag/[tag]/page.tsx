@@ -3,6 +3,9 @@ import { getPostsByTag, getAllTags } from "@/lib/posts";
 import PostList from "@/components/blog/PostList";
 import type { Metadata } from "next";
 
+const SITE_URL =
+  process.env.NEXT_PUBLIC_SITE_URL || "https://daily-givepro.vercel.app";
+
 export async function generateStaticParams() {
   return getAllTags().map((tag) => ({ tag: tag.name }));
 }
@@ -15,8 +18,11 @@ export async function generateMetadata({
   const { tag } = await params;
   const decoded = decodeURIComponent(tag);
   return {
-    title: `#${decoded}`,
-    description: `Posts tagged with #${decoded}`,
+    title: `#${decoded} - 태그`,
+    description: `#${decoded} 태그가 달린 블로그 글 모음. Daily Givepro에서 관련 콘텐츠를 확인하세요.`,
+    alternates: {
+      canonical: `${SITE_URL}/tag/${encodeURIComponent(decoded)}`,
+    },
   };
 }
 
@@ -37,7 +43,7 @@ export default async function TagPage({
         #{decoded}
       </h1>
       <p className="mb-6 text-gray-600 dark:text-gray-400">
-        {posts.length} posts tagged with #{decoded}
+        {posts.length}개의 글에 #{decoded} 태그가 사용되었습니다
       </p>
       <PostList posts={posts} />
     </div>

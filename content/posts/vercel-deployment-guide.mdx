@@ -1,0 +1,187 @@
+---
+title: "Vercel로 Next.js 프로젝트 무료 배포하기"
+description: "Vercel에 Next.js 프로젝트를 배포하는 방법을 단계별로 설명합니다. 커스텀 도메인, 환경 변수, 성능 최적화까지."
+date: "2026-02-01"
+category: "tutorial"
+tags: ["Vercel", "배포", "Next.js", "호스팅"]
+enableAds: true
+---
+
+웹 프로젝트를 만들었다면 다음 단계는 배포입니다. Vercel은 Next.js를 만든 회사에서 운영하는 클라우드 플랫폼으로, Next.js 프로젝트를 배포하기에 가장 최적화된 환경을 제공합니다. 개인 프로젝트는 무료로 호스팅할 수 있으며, 설정도 매우 간단합니다.
+
+## 왜 Vercel인가?
+
+### Next.js와의 완벽한 호환
+
+Vercel은 Next.js의 모든 기능을 네이티브로 지원합니다. App Router, Server Components, Edge Runtime, 이미지 최적화, ISR(Incremental Static Regeneration) 등 Next.js의 모든 기능이 별도 설정 없이 동작합니다.
+
+### 자동 배포
+
+GitHub 저장소를 연결하면 코드를 push할 때마다 자동으로 빌드하고 배포합니다. PR을 생성하면 프리뷰 배포가 자동으로 생성되어 변경사항을 실제 환경에서 확인할 수 있습니다.
+
+### 글로벌 CDN
+
+Vercel의 Edge Network는 전 세계에 분산되어 있어 어디서든 빠른 응답 속도를 제공합니다. 정적 페이지는 CDN에서 직접 서빙되므로 서버 응답 시간이 매우 짧습니다.
+
+### 무료 제공 기능
+
+Hobby 플랜(무료)에서도 다음 기능을 사용할 수 있습니다:
+
+- HTTPS (SSL 인증서 자동 발급)
+- 커스텀 도메인 연결
+- 자동 CI/CD
+- 프리뷰 배포
+- 서버리스 함수
+- Edge Functions
+- Analytics (기본)
+
+## 배포 단계
+
+### 1단계: GitHub 저장소 준비
+
+프로젝트를 GitHub에 push합니다.
+
+```bash
+git init
+git add .
+git commit -m "Initial commit"
+git remote add origin https://github.com/username/my-blog.git
+git push -u origin main
+```
+
+### 2단계: Vercel 계정 생성
+
+vercel.com에서 GitHub 계정으로 가입합니다. 별도의 가입 절차 없이 GitHub 로그인만으로 바로 사용할 수 있습니다.
+
+### 3단계: 프로젝트 임포트
+
+Vercel 대시보드에서 "Add New > Project"를 클릭하고 GitHub 저장소를 선택합니다.
+
+Vercel이 자동으로 프레임워크를 감지합니다. Next.js 프로젝트라면 빌드 설정이 자동으로 구성됩니다.
+
+- Framework Preset: Next.js
+- Build Command: `next build`
+- Output Directory: `.next`
+
+### 4단계: 환경 변수 설정
+
+배포 전에 필요한 환경 변수를 설정합니다. Vercel 대시보드의 Settings > Environment Variables에서 추가합니다.
+
+```
+NEXT_PUBLIC_SITE_URL=https://your-domain.com
+NEXT_PUBLIC_SITE_NAME=My Blog
+NEXT_PUBLIC_GA_MEASUREMENT_ID=G-XXXXXXXXXX
+NEXT_PUBLIC_ADSENSE_CLIENT_ID=ca-pub-XXXXXXXXXX
+```
+
+환경 변수는 Production, Preview, Development 환경별로 다르게 설정할 수 있습니다.
+
+### 5단계: 배포
+
+"Deploy" 버튼을 클릭하면 빌드가 시작됩니다. 빌드 로그를 실시간으로 확인할 수 있으며, 완료되면 자동으로 배포됩니다.
+
+<InArticleAd />
+
+## 커스텀 도메인 연결
+
+### 도메인 구매
+
+Namecheap, GoDaddy, 가비아 등의 도메인 등록 업체에서 도메인을 구매합니다. `.com` 도메인 기준 연간 1-2만 원 정도입니다.
+
+### DNS 설정
+
+Vercel 대시보드의 Settings > Domains에서 도메인을 추가합니다. Vercel이 안내하는 DNS 레코드를 도메인 등록 업체의 DNS 관리 페이지에서 설정합니다.
+
+일반적으로 두 가지 방법이 있습니다:
+
+**방법 1: Nameserver 변경 (권장)**
+
+도메인의 네임서버를 Vercel로 변경하면 DNS 관리를 Vercel에서 할 수 있습니다.
+
+**방법 2: A/CNAME 레코드 추가**
+
+기존 DNS를 유지하면서 A 레코드와 CNAME 레코드만 추가합니다.
+
+```
+A    @    76.76.21.21
+CNAME www  cname.vercel-dns.com
+```
+
+SSL 인증서는 Vercel이 자동으로 발급합니다. Let's Encrypt를 사용하며 갱신도 자동입니다.
+
+## 성능 최적화
+
+### 빌드 캐시
+
+Vercel은 이전 빌드의 캐시를 활용하여 빌드 시간을 단축합니다. `node_modules`와 `.next/cache`가 자동으로 캐싱됩니다.
+
+### 이미지 최적화
+
+Next.js의 `Image` 컴포넌트를 사용하면 Vercel의 이미지 최적화 서비스가 자동으로 적용됩니다.
+
+- WebP/AVIF 포맷 자동 변환
+- 디바이스에 맞는 크기로 리사이징
+- lazy loading 기본 적용
+- CDN 캐싱
+
+### 분석 도구
+
+Vercel Analytics를 활성화하면 Core Web Vitals를 실시간으로 모니터링할 수 있습니다. 실제 사용자 데이터를 기반으로 LCP, FID, CLS 등의 지표를 확인하고 개선할 수 있습니다.
+
+```bash
+npm install @vercel/analytics
+```
+
+```typescript
+// app/layout.tsx
+import { Analytics } from "@vercel/analytics/react";
+
+export default function Layout({ children }) {
+  return (
+    <html>
+      <body>
+        {children}
+        <Analytics />
+      </body>
+    </html>
+  );
+}
+```
+
+## 프리뷰 배포 활용
+
+PR을 생성하면 Vercel이 자동으로 프리뷰 배포를 생성합니다. 프리뷰 URL은 PR 페이지에서 확인할 수 있으며, 실제 프로덕션 환경과 동일한 조건에서 변경사항을 테스트할 수 있습니다.
+
+이 기능은 코드 리뷰에서 매우 유용합니다. 리뷰어가 코드만 보는 것이 아니라 실제로 동작하는 결과물을 직접 확인할 수 있기 때문입니다.
+
+## 트러블슈팅
+
+### 빌드 실패
+
+가장 흔한 빌드 실패 원인은 다음과 같습니다:
+
+1. **환경 변수 누락**: 로컬에서는 `.env.local`에 있던 변수가 Vercel에 설정되지 않은 경우
+2. **TypeScript 에러**: `next build`에서 타입 에러를 감지하는 경우
+3. **의존성 문제**: `package-lock.json`이 오래되었거나 누락된 경우
+
+### 성능 문제
+
+배포 후 성능이 기대보다 낮으면 Vercel Analytics와 Lighthouse를 활용하여 병목점을 찾습니다. 주로 큰 이미지, 서드파티 스크립트, 번들 크기가 원인입니다.
+
+## Vercel vs 다른 플랫폼
+
+| 기능 | Vercel | Netlify | Cloudflare Pages |
+|------|--------|---------|-----------------|
+| Next.js 지원 | 완벽 | 부분적 | 부분적 |
+| 무료 대역폭 | 100GB/월 | 100GB/월 | 무제한 |
+| 서버리스 함수 | 지원 | 지원 | Workers |
+| Edge Functions | 지원 | Edge Functions | Workers |
+| 프리뷰 배포 | 자동 | 자동 | 자동 |
+
+Next.js 프로젝트라면 Vercel이 가장 좋은 선택입니다. 다른 프레임워크를 사용한다면 Netlify나 Cloudflare Pages도 좋은 대안입니다.
+
+## 마무리
+
+Vercel을 사용하면 배포 과정에 대한 걱정 없이 개발에 집중할 수 있습니다. GitHub에 push하면 자동으로 배포되고, HTTPS, CDN, 도메인 관리까지 모두 해결됩니다.
+
+무료 플랜으로도 개인 블로그나 포트폴리오 사이트를 충분히 운영할 수 있습니다. 트래픽이 늘어나면 Pro 플랜으로 업그레이드하면 됩니다.

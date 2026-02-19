@@ -34,6 +34,8 @@ export const metadata: Metadata = {
     type: "website",
     locale: "ko_KR",
     siteName: SITE_NAME,
+    url: SITE_URL,
+    images: [{ url: "/og-default.png", width: 1200, height: 630 }],
   },
   robots: {
     index: true,
@@ -70,6 +72,7 @@ export default function RootLayout({
   return (
     <html lang="ko" suppressHydrationWarning>
       <head>
+        <meta name="google-adsense-account" content="ca-pub-3394566688847940" />
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
@@ -81,8 +84,14 @@ export default function RootLayout({
         <ThemeProvider>
           <AdSenseScript />
           <GoogleAnalytics />
+          <a
+            href="#main-content"
+            className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-lg focus:bg-white focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:text-gray-900 focus:shadow-lg dark:focus:bg-gray-900 dark:focus:text-white"
+          >
+            본문으로 건너뛰기
+          </a>
           <Header />
-          <main className="flex-1">{children}</main>
+          <main id="main-content" className="flex-1">{children}</main>
           <Footer />
         </ThemeProvider>
       </body>
