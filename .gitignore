@@ -35,6 +35,9 @@ yarn-error.log*
 .env.local
 .env.*.local
 
+# credentials
+.git-config
+
 # bkit / claude
 .bkit-memory.json
 .pdca-status.json
