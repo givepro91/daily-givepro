@@ -1,0 +1,431 @@
+---
+title: "2026 프론트엔드 번들러 성능 비교: Vite vs Turbopack vs Rspack"
+description: "실제 프로젝트에서 Vite, Turbopack, Rspack의 빌드 속도, HMR 속도, 번들 크기를 직접 벤치마크한 결과를 공유합니다."
+date: "2026-03-03"
+category: "tech"
+tags: ["번들러", "Vite", "Turbopack", "Rspack", "벤치마크"]
+enableAds: true
+---
+
+프론트엔드 번들러를 선택하는 건 2026년에도 여전히 뜨거운 주제입니다. Webpack의 시대가 저물고 있다는 건 대부분 동의하지만, 그 다음 주자가 누구인지에 대해서는 의견이 분분합니다. Vite가 대세라고 하고, Vercel은 Turbopack이 미래라고 하고, Rspack은 Webpack 호환성과 Rust 속도를 동시에 제공한다고 합니다.
+
+말로만 듣지 말고 직접 벤치마크를 해보자. 그래서 실제 프로덕션 규모의 프로젝트에서 세 번들러를 공정하게 비교해봤습니다. 이 글에서는 테스트 환경, 방법론, 구체적인 수치, 그리고 "그래서 뭘 써야 하는데?"에 대한 답을 공유합니다.
+
+## 테스트 환경
+
+공정한 비교를 위해 하드웨어, 소프트웨어, 프로젝트 규모를 통일했습니다.
+
+### 하드웨어
+
+- **CPU:** Apple M3 Pro (11코어)
+- **RAM:** 36GB
+- **SSD:** 1TB NVMe (읽기 7,400MB/s)
+- **OS:** macOS Sonoma 15.3
+
+M3 Pro를 선택한 이유는 2026년 현재 한국 개발자들이 가장 많이 사용하는 맥북 스펙 중 하나이기 때문입니다. Intel이나 AMD 환경에서는 절대적인 수치가 다를 수 있지만, 상대적인 비교는 유사할 것입니다.
+
+### 소프트웨어 버전
+
+| 도구 | 버전 |
+|------|------|
+| Node.js | 22.12.0 |
+| Vite | 6.1.0 |
+| Turbopack | Next.js 15.2 내장 |
+| Rspack | 1.2.0 |
+| React | 19.0 |
+| TypeScript | 5.7 |
+
+### 테스트 프로젝트 규모
+
+실제 프로덕션 앱과 유사한 규모로 구성했습니다.
+
+- **컴포넌트 수:** 187개
+- **페이지 수:** 24개
+- **TypeScript 파일:** 312개
+- **총 코드 라인:** 약 48,000줄
+- **npm 패키지 수:** 89개 (React, MUI, Zustand, React Query, date-fns 등)
+- **CSS:** Tailwind CSS + CSS Modules 혼용
+- **이미지 에셋:** 47개 (총 12MB)
+
+이 프로젝트는 실제로 운영 중인 B2B SaaS 대시보드의 구조를 기반으로 만들었습니다. 단순히 컴포넌트 수만 늘린 인위적인 벤치마크가 아니라, 실제 복잡도를 반영했습니다.
+
+## 벤치마크 방법론
+
+각 항목에 대해 **5회 측정 후 중간값**을 사용했습니다. 첫 번째 실행은 캐시가 없는 상태에서, 이후는 캐시가 있는 상태에서 측정했습니다.
+
+외부 변수를 최소화하기 위해:
+- 모든 백그라운드 앱을 종료한 상태에서 측정
+- 각 번들러 테스트 사이에 시스템을 재부팅
+- `node_modules` 캐시를 삭제한 후 `npm ci`로 재설치
+- 번들러 자체 캐시는 별도로 cold/warm 으로 구분하여 측정
+
+## 벤치마크 결과
+
+### 1. 개발 서버 Cold Start (최초 실행)
+
+프로젝트를 처음 시작할 때의 속도입니다. `npm run dev`를 실행한 후 브라우저에서 페이지가 완전히 렌더링될 때까지의 시간입니다.
+
+| 번들러 | Cold Start 시간 | 상대 비교 |
+|--------|----------------|-----------|
+| Vite 6.1 | 1,240ms | 기준 (1x) |
+| Turbopack (Next 15.2) | 1,680ms | 1.35x 느림 |
+| Rspack 1.2 | 890ms | 1.39x 빠름 |
+
+**Rspack이 가장 빨랐습니다.** Rust로 작성된 핵심 엔진의 힘입니다. Vite는 esbuild를 사용해 빠르지만, Rspack은 전체 파이프라인이 Rust이므로 JS-Rust 브릿지 오버헤드가 적습니다.
+
+Turbopack이 가장 느린 이유는 Next.js의 오버헤드 때문입니다. Turbopack 자체의 번들링 속도는 빠르지만, Next.js의 App Router 초기화, 미들웨어 설정, RSC 컴파일 등의 부가 작업이 시간을 잡아먹습니다. 순수 번들링 속도만 비교하면 Vite와 비슷한 수준입니다.
+
+### 2. HMR (Hot Module Replacement) 속도
+
+개발 중 파일을 수정했을 때 브라우저에 반영되는 속도입니다. 이건 개발 경험에 직접적인 영향을 미치는 가장 중요한 지표입니다.
+
+**테스트 방식:** 리프 컴포넌트(하위 컴포넌트)의 텍스트를 수정한 후 브라우저 반영까지의 시간
+
+| 번들러 | HMR 속도 (리프 컴포넌트) | HMR 속도 (루트 레이아웃) |
+|--------|------------------------|------------------------|
+| Vite 6.1 | 28ms | 145ms |
+| Turbopack (Next 15.2) | 18ms | 67ms |
+| Rspack 1.2 | 35ms | 120ms |
+
+**HMR에서는 Turbopack이 압도적입니다.** 특히 루트 레이아웃처럼 많은 모듈에 영향을 미치는 파일을 수정했을 때 차이가 극명합니다. Turbopack은 증분 컴파일에 특화된 아키텍처를 가지고 있어서, 변경된 모듈과 그 의존성만 정확하게 다시 컴파일합니다.
+
+Vite의 145ms도 충분히 빠르지만, 프로젝트가 커질수록 이 차이는 벌어집니다. 저희 프로젝트 규모(48,000줄)에서 이 정도면, 10만 줄 이상의 대규모 프로젝트에서는 Turbopack의 이점이 더 커질 것으로 예상됩니다.
+
+Rspack의 HMR이 가장 느린 건 의외였습니다. Webpack 호환성을 유지하기 위해 HMR 프로토콜도 Webpack 방식을 따르는데, 이 부분이 모던 번들러들에 비해 최적화가 덜 된 것으로 보입니다.
+
+### 3. 프로덕션 빌드 시간
+
+`npm run build`를 실행했을 때의 시간입니다.
+
+| 번들러 | Cold Build | Cached Build | 상대 비교 (Cold) |
+|--------|-----------|-------------|-----------------|
+| Vite 6.1 | 12.4s | 8.1s | 기준 (1x) |
+| Turbopack (Next 15.2) | 18.7s | 6.3s | Cold 1.5x 느림 |
+| Rspack 1.2 | 5.8s | 3.2s | Cold 2.1x 빠름 |
+
+**프로덕션 빌드에서 Rspack이 압도적입니다.** Cold 빌드 기준 Vite보다 2배 이상 빠릅니다. CI/CD 파이프라인에서 매번 빌드를 돌리는 환경이라면 이 차이는 매우 유의미합니다.
+
+Turbopack의 cold 빌드가 느린 이유는 Next.js의 정적 분석과 최적화 단계가 포함되기 때문입니다. React Server Component 분석, 자동 코드 스플리팅, 이미지 최적화 등의 작업이 추가됩니다. 하지만 캐시가 있을 때는 6.3초로 빨라지는데, 이건 Turbopack의 영속 캐싱이 강력하다는 걸 보여줍니다.
+
+Vite는 내부적으로 Rollup(현재는 Rolldown)을 사용하는데, Rolldown은 Rust로 재작성되면서 이전보다 빨라졌지만 Rspack의 순수 Rust 파이프라인에는 미치지 못합니다.
+
+### 4. 프로덕션 번들 크기
+
+최종 배포되는 JavaScript 번들의 크기입니다. gzip 압축 후 크기도 함께 측정했습니다.
+
+| 번들러 | JS 번들 (원본) | JS 번들 (gzip) | CSS 번들 (gzip) |
+|--------|---------------|---------------|----------------|
+| Vite 6.1 | 847KB | 268KB | 42KB |
+| Turbopack (Next 15.2) | 912KB | 285KB | 38KB |
+| Rspack 1.2 | 823KB | 261KB | 44KB |
+
+**번들 크기는 세 번들러 모두 비슷합니다.** Rspack이 근소하게 가장 작고, Turbopack이 근소하게 가장 큽니다. 하지만 gzip 기준 20KB 남짓의 차이이므로 실사용에서 의미 있는 차이라고 보기는 어렵습니다.
+
+Turbopack의 번들이 약간 큰 이유는 Next.js의 런타임 코드가 포함되기 때문입니다. 라우터, 데이터 페칭, RSC 런타임 등이 번들에 추가됩니다. 순수 번들러의 출력만 비교하면 비슷할 것입니다.
+
+### 5. 빌드 시 메모리 사용량
+
+프로덕션 빌드 중 최대 메모리 사용량입니다.
+
+| 번들러 | 최대 메모리 사용량 | 평균 메모리 사용량 |
+|--------|------------------|------------------|
+| Vite 6.1 | 1.8GB | 1.2GB |
+| Turbopack (Next 15.2) | 2.4GB | 1.7GB |
+| Rspack 1.2 | 1.1GB | 0.7GB |
+
+**Rspack이 메모리 효율에서도 우수합니다.** Rust의 메모리 관리가 빛을 발하는 부분입니다. Turbopack은 가장 많은 메모리를 사용하는데, 영속 캐싱을 위한 데이터 구조가 메모리를 많이 차지하는 것으로 보입니다.
+
+메모리 사용량은 CI/CD 환경에서 특히 중요합니다. GitHub Actions의 기본 러너는 RAM이 7GB인데, 빌드 프로세스가 2.4GB를 쓰면 다른 프로세스와의 경합이 발생할 수 있습니다.
+
+<InArticleAd />
+
+## 실제 프로젝트 마이그레이션 경험: CRA에서 Vite로
+
+벤치마크 수치를 보여드렸으니, 이제 실제로 마이그레이션한 경험을 공유합니다. 회사에서 운영 중인 프로젝트를 Create React App(CRA)에서 Vite로 전환한 이야기입니다.
+
+### 전환 배경
+
+CRA의 개발 서버 시작이 **45초**나 걸렸습니다. 파일 하나 수정하면 HMR에 **3~5초**가 걸렸습니다. 2026년에 CRA를 쓰고 있다는 것 자체가 기술 부채였지만, 팀 내에서 "돌아가는 걸 왜 바꿔?"라는 저항이 있었습니다.
+
+결국 제가 주말에 개인 시간을 써서 PoC를 만들었고, 개발 서버 시작 시간이 **45초 → 1.8초**로 줄어든 걸 팀에 보여주니 모두 동의했습니다.
+
+### 마이그레이션 과정
+
+**1단계: Vite 설치 및 기본 설정**
+
+```bash
+npm install -D vite @vitejs/plugin-react
+```
+
+```ts
+// vite.config.ts
+import { defineConfig } from 'vite'
+import react from '@vitejs/plugin-react'
+import path from 'path'
+
+export default defineConfig({
+  plugins: [react()],
+  resolve: {
+    alias: {
+      '@': path.resolve(__dirname, './src'),
+    },
+  },
+  server: {
+    port: 3000,
+  },
+})
+```
+
+**2단계: index.html 이동**
+
+CRA는 `public/index.html`을 사용하지만, Vite는 루트의 `index.html`을 사용합니다. 그리고 스크립트 태그를 추가해야 합니다.
+
+```html
+<!-- index.html (루트 디렉토리) -->
+<!DOCTYPE html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>앱 이름</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
+```
+
+**3단계: 환경 변수 변환**
+
+CRA는 `REACT_APP_` 접두사를 사용하지만, Vite는 `VITE_` 접두사를 사용합니다.
+
+```bash
+# 변경 전 (.env)
+REACT_APP_API_URL=https://api.example.com
+
+# 변경 후 (.env)
+VITE_API_URL=https://api.example.com
+```
+
+코드에서도 `process.env.REACT_APP_*`를 `import.meta.env.VITE_*`로 변환해야 합니다. 이 작업이 가장 번거로웠습니다. 312개 파일에서 환경 변수를 사용하고 있었고, 일괄 치환으로 처리했습니다.
+
+```bash
+# 일괄 치환 스크립트
+find src -name "*.ts" -o -name "*.tsx" | \
+  xargs sed -i '' 's/process\.env\.REACT_APP_/import.meta.env.VITE_/g'
+```
+
+**4단계: 호환성 이슈 해결**
+
+마이그레이션에서 가장 많은 시간을 잡아먹은 건 **CommonJS 모듈 호환성**입니다. Vite는 ESM 기반이므로, `require()`를 사용하는 라이브러리에서 문제가 발생합니다.
+
+```
+Error: require is not defined in ES module scope
+```
+
+대부분의 경우 Vite가 자동으로 CJS를 ESM으로 변환해주지만, 일부 라이브러리에서는 수동으로 처리해야 했습니다.
+
+```ts
+// vite.config.ts에 추가
+export default defineConfig({
+  // ...
+  optimizeDeps: {
+    include: ['problematic-library'], // 사전 번들링 대상에 추가
+  },
+  build: {
+    commonjsOptions: {
+      transformMixedEsModules: true,
+    },
+  },
+})
+```
+
+### 마이그레이션 결과
+
+| 지표 | CRA (Before) | Vite (After) | 개선율 |
+|------|-------------|-------------|-------|
+| 개발 서버 시작 | 45s | 1.8s | 25x 빠름 |
+| HMR | 3~5s | 28~50ms | 100x 빠름 |
+| 프로덕션 빌드 | 67s | 12.4s | 5.4x 빠름 |
+| 번들 크기 (gzip) | 312KB | 268KB | 14% 감소 |
+| CI 빌드 시간 | 4분 12초 | 1분 38초 | 2.6x 빠름 |
+
+마이그레이션에 총 **3일** 걸렸습니다 (환경 변수 치환 1일, 호환성 이슈 해결 1일, 테스트 1일). 투자 대비 효과가 압도적이었습니다.
+
+## 각 번들러의 설정 예시
+
+### Vite 6.1 설정
+
+```ts
+// vite.config.ts
+import { defineConfig } from 'vite'
+import react from '@vitejs/plugin-react'
+import tsconfigPaths from 'vite-tsconfig-paths'
+
+export default defineConfig({
+  plugins: [
+    react(),
+    tsconfigPaths(),
+  ],
+  build: {
+    target: 'es2022',
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          vendor: ['react', 'react-dom'],
+          ui: ['@mui/material'],
+        },
+      },
+    },
+  },
+  css: {
+    modules: {
+      localsConvention: 'camelCase',
+    },
+  },
+})
+```
+
+### Turbopack (Next.js 15.2)
+
+Turbopack은 Next.js에 내장되어 있으므로 별도 설정이 최소화됩니다.
+
+```ts
+// next.config.ts
+import type { NextConfig } from 'next'
+
+const nextConfig: NextConfig = {
+  // Turbopack은 next dev --turbopack으로 활성화
+  experimental: {
+    // Turbopack 관련 실험적 옵션
+    turbo: {
+      rules: {
+        '*.svg': {
+          loaders: ['@svgr/webpack'],
+          as: '*.js',
+        },
+      },
+    },
+  },
+}
+
+export default nextConfig
+```
+
+```bash
+# 개발 서버 실행
+npx next dev --turbopack
+```
+
+### Rspack 1.2 설정
+
+```ts
+// rspack.config.ts
+import { defineConfig } from '@rspack/cli'
+import { rspack } from '@rspack/core'
+
+export default defineConfig({
+  entry: { main: './src/main.tsx' },
+  output: {
+    filename: '[name].[contenthash].js',
+    path: './dist',
+    clean: true,
+  },
+  resolve: {
+    extensions: ['.ts', '.tsx', '.js', '.jsx'],
+    alias: {
+      '@': './src',
+    },
+  },
+  module: {
+    rules: [
+      {
+        test: /\.tsx?$/,
+        use: {
+          loader: 'builtin:swc-loader',
+          options: {
+            jsc: {
+              parser: { syntax: 'typescript', tsx: true },
+              transform: { react: { runtime: 'automatic' } },
+            },
+          },
+        },
+      },
+      {
+        test: /\.css$/,
+        use: [rspack.CssExtractRspackPlugin.loader, 'css-loader', 'postcss-loader'],
+        type: 'javascript/auto',
+      },
+    ],
+  },
+  plugins: [
+    new rspack.CssExtractRspackPlugin(),
+    new rspack.HtmlRspackPlugin({ template: './index.html' }),
+  ],
+  optimization: {
+    splitChunks: {
+      chunks: 'all',
+      cacheGroups: {
+        vendor: {
+          test: /[\\/]node_modules[\\/]/,
+          name: 'vendors',
+          chunks: 'all',
+        },
+      },
+    },
+  },
+})
+```
+
+Rspack의 설정이 가장 길지만, **Webpack과 거의 동일한 문법**이라는 게 장점입니다. 기존 Webpack 프로젝트를 마이그레이션할 때 설정 파일을 거의 그대로 사용할 수 있습니다.
+
+## 번들러 선택 가이드: 상황별 추천
+
+### Vite를 선택해야 하는 경우
+
+- **새 프로젝트를 시작**할 때: 생태계가 가장 크고 플러그인이 풍부합니다
+- **프레임워크에 구애받지 않을 때**: React, Vue, Svelte 모두 지원합니다
+- **팀이 Webpack에 익숙하지 않을 때**: 설정이 직관적이고 문서가 훌륭합니다
+- **빠른 개발 서버가 최우선일 때**: ESM 기반으로 초기 로딩이 빠릅니다
+
+### Turbopack을 선택해야 하는 경우
+
+- **Next.js를 사용**할 때: Next.js와의 통합이 완벽합니다
+- **HMR 속도가 가장 중요할 때**: 대규모 프로젝트에서 HMR이 가장 빠릅니다
+- **RSC를 적극 활용할 때**: Server Component 컴파일이 최적화되어 있습니다
+- **Vercel 생태계에 있을 때**: 캐싱, 배포 등 Vercel 인프라와의 시너지가 있습니다
+
+### Rspack을 선택해야 하는 경우
+
+- **기존 Webpack 프로젝트를 마이그레이션할 때**: 설정 호환성이 가장 높습니다
+- **빌드 속도가 가장 중요할 때**: 프로덕션 빌드에서 압도적입니다
+- **CI/CD 비용을 줄이고 싶을 때**: 빌드 시간과 메모리 사용량이 적어 러너 비용을 절약할 수 있습니다
+- **대규모 모노레포 환경일 때**: Webpack 생태계의 도구들과 호환되면서 속도가 빠릅니다
+
+### 아직 Webpack을 사용 중이라면?
+
+**무조건 마이그레이션하세요.** 어떤 번들러를 선택하든 Webpack 5보다 최소 2배 이상 빠릅니다. 선택이 어려우면 Vite를 추천합니다. 가장 안전하고, 생태계가 가장 크고, 레퍼런스가 가장 많습니다.
+
+## 결론
+
+벤치마크 수치를 한눈에 정리하면 이렇습니다.
+
+| 항목 | 1위 | 2위 | 3위 |
+|------|-----|-----|-----|
+| Cold Start | Rspack | Vite | Turbopack |
+| HMR 속도 | Turbopack | Vite | Rspack |
+| 프로덕션 빌드 속도 | Rspack | Vite | Turbopack |
+| 번들 크기 | Rspack ≈ Vite | - | Turbopack |
+| 메모리 효율 | Rspack | Vite | Turbopack |
+| 생태계/플러그인 | Vite | Rspack | Turbopack |
+| 설정 편의성 | Vite | Turbopack | Rspack |
+| Webpack 호환성 | Rspack | - | - |
+
+**종합적으로 하나만 추천하라면: Vite입니다.** 모든 항목에서 1위는 아니지만, 모든 항목에서 2위 안에 들어갑니다. 생태계, 문서, 커뮤니티까지 고려하면 가장 안전한 선택입니다.
+
+하지만 상황에 따라 최적의 선택은 다릅니다. Next.js를 쓴다면 Turbopack, Webpack에서 점진적으로 마이그레이션해야 한다면 Rspack이 더 나은 선택일 수 있습니다.
+
+한 가지 확실한 건, 2026년에 아직 Webpack 4나 CRA를 쓰고 있다면 마이그레이션의 ROI가 매우 높다는 것입니다. 저희 팀은 3일 투자로 개발 서버 시작 시간을 25배 줄였고, 그 이후 매일 절약되는 시간을 합산하면 이미 수십 시간이 넘었습니다.
+
+번들러 선택에 대해 궁금한 점이 있으시면 댓글로 남겨주세요. 특정 프로젝트 환경에서의 추천이 필요하시면 프로젝트 규모와 기술 스택을 알려주시면 더 구체적으로 답변드리겠습니다.

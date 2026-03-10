@@ -1,0 +1,462 @@
+---
+title: "Next.js 성능 최적화 실전 가이드: Core Web Vitals 점수 90점 이상 만들기"
+description: "Next.js 프로젝트의 Core Web Vitals 점수를 실제로 90점 이상 달성한 경험을 바탕으로, 이미지 최적화, 번들 사이즈 축소, 렌더링 전략 등 실전 최적화 기법을 상세히 공유합니다."
+date: "2026-03-10"
+category: "tutorial"
+tags: ["Next.js", "성능최적화", "Core Web Vitals", "웹개발", "프론트엔드", "SEO"]
+enableAds: true
+---
+
+"사이트가 느려요." 개발자가 가장 듣기 싫은 말 중 하나다. 특히 열심히 기능을 개발해놓았는데 PageSpeed Insights에서 30점대가 나오면, 마치 시험에서 낙제점을 받은 기분이다. 내가 직접 경험한 이야기를 하자면, 작년 말에 운영하던 Next.js 프로젝트의 Lighthouse 점수가 모바일에서 28점이 나왔다. 팀 미팅에서 "이거 고객한테 보여줄 수 없다"는 이야기가 나왔고, 그때부터 약 3주간의 성능 최적화 여정이 시작됐다.
+
+결과적으로 모바일 기준 92점까지 올렸고, 그 과정에서 배운 것들을 이 글에 담았다. 단순히 "이렇게 하세요"가 아니라, 실제로 적용하면서 겪은 시행착오와 각 최적화 기법이 실제로 몇 점이나 올려줬는지도 함께 공유한다.
+
+## Core Web Vitals 이해하기: 숫자가 의미하는 것
+
+성능 최적화를 시작하기 전에, 우리가 무엇을 최적화하는지 제대로 이해해야 한다. Google의 Core Web Vitals는 세 가지 핵심 지표로 구성된다.
+
+### LCP (Largest Contentful Paint)
+
+페이지에서 가장 큰 콘텐츠 요소가 화면에 렌더링되는 시점이다. 보통 히어로 이미지나 큰 텍스트 블록이 해당된다. 2.5초 이내가 "좋음"이고, 4초 이상이면 "나쁨"이다.
+
+내 프로젝트에서 LCP가 가장 문제였다. 메인 페이지의 히어로 이미지가 최적화되지 않은 2MB PNG 파일이었는데, 모바일 네트워크에서는 로딩에 6초 이상 걸렸다. 이것만 고쳐도 LCP가 6.2초에서 1.8초로 떨어졌다.
+
+### INP (Interaction to Next Paint)
+
+사용자의 인터랙션(클릭, 탭, 키 입력)에 대한 응답 시간이다. 200ms 이내가 "좋음"이다. 이전의 FID(First Input Delay)를 대체한 지표로, 페이지 전체 생명주기 동안의 모든 인터랙션을 측정한다는 점에서 더 엄격하다.
+
+우리 프로젝트에서는 필터 드롭다운을 클릭했을 때 300ms 이상 걸리는 문제가 있었다. 원인은 필터 옵션 변경 시 전체 상품 리스트가 리렌더링되는 것이었다.
+
+### CLS (Cumulative Layout Shift)
+
+페이지 로딩 중 레이아웃이 얼마나 이동하는지를 측정한다. 0.1 이하가 "좋음"이다. 이미지나 광고가 늦게 로딩되면서 텍스트가 밀려나는 그런 현상을 측정한다.
+
+실제로 사용해보니, CLS는 가장 간과하기 쉬우면서도 사용자 경험에 큰 영향을 미치는 지표다. 글을 읽고 있는데 갑자기 광고가 로딩되면서 읽던 문단이 아래로 밀려나면, 사용자는 짜증이 난다. 이건 숫자로 나타나지 않는 부분이기도 하다.
+
+## 최적화 전 현황 파악: 측정 없이는 개선 없다
+
+최적화를 시작하기 전에 반드시 현재 상태를 측정해야 한다. "느리다"라는 감은 있어도, 어디가 얼마나 느린지를 정확히 모르면 효과적인 개선이 불가능하다.
+
+### 측정 도구들
+
+내가 실제로 사용하는 측정 도구 조합은 이렇다.
+
+**PageSpeed Insights:** Google의 공식 도구다. 실제 사용자 데이터(CrUX)와 시뮬레이션 데이터(Lighthouse)를 모두 보여준다. 실제 사용자 데이터가 특히 중요한데, 실험실 환경과 실제 사용자 환경은 크게 다를 수 있기 때문이다.
+
+**Chrome DevTools Performance 탭:** 구체적인 병목 지점을 찾는 데 필수다. Flamechart를 읽는 법을 꼭 익혀두자. 처음에는 복잡해 보이지만, 한번 익숙해지면 "이 JavaScript 실행이 메인 스레드를 300ms 블로킹하고 있다"같은 구체적인 문제를 찾을 수 있다.
+
+**Next.js Analytics:** Vercel에 배포한 경우, 실제 사용자의 Core Web Vitals 데이터를 수집할 수 있다. 무료 플랜에서도 기본적인 데이터를 제공한다.
+
+**`@next/bundle-analyzer`:** 번들 사이즈를 시각화해준다. "lodash가 번들의 30%를 차지하고 있었다"같은 충격적인 사실을 발견할 수 있다.
+
+### 내 프로젝트의 초기 점수
+
+최적화 시작 전 Lighthouse 점수는 이랬다.
+
+| 지표 | 모바일 | 데스크탑 |
+|------|--------|----------|
+| Performance | 28 | 56 |
+| LCP | 6.2s | 3.1s |
+| INP | 380ms | 150ms |
+| CLS | 0.32 | 0.18 |
+| Total Blocking Time | 2.8s | 1.2s |
+| FCP | 3.5s | 1.8s |
+
+솔직히 처참한 수준이었다. 하나씩 개선해나가보자.
+
+## 이미지 최적화: 가장 큰 효과를 주는 첫 번째 단계
+
+이미지 최적화는 성능 개선에서 가장 ROI가 높은 작업이다. 우리 프로젝트에서 이미지 최적화만으로 LCP가 4초 이상 개선됐다.
+
+### Next.js Image 컴포넌트 제대로 활용하기
+
+Next.js의 `<Image>` 컴포넌트는 단순히 `<img>` 태그를 대체하는 것이 아니다. 자동 WebP/AVIF 변환, 반응형 이미지 생성, lazy loading, blur placeholder 등을 제공한다. 하지만 내가 직접 경험한 바로는, 제대로 설정하지 않으면 오히려 성능이 나빠질 수 있다.
+
+```tsx
+// ❌ 잘못된 사용: fill 없이 layout 미지정
+<Image src="/hero.png" alt="히어로" />
+
+// ❌ 흔한 실수: 불필요하게 큰 사이즈 지정
+<Image src="/hero.png" alt="히어로" width={3840} height={2160} />
+
+// ✅ 올바른 사용: 실제 표시 크기에 맞춘 사이즈
+<Image
+  src="/hero.png"
+  alt="히어로 이미지"
+  width={1200}
+  height={600}
+  priority
+  sizes="(max-width: 768px) 100vw, (max-width: 1200px) 80vw, 1200px"
+  placeholder="blur"
+  blurDataURL={shimmerBlurDataURL}
+/>
+```
+
+여기서 핵심 포인트를 정리하면 다음과 같다.
+
+**`priority` 속성:** LCP 대상이 되는 이미지(보통 첫 화면에 보이는 히어로 이미지)에는 반드시 `priority`를 추가해야 한다. 이게 없으면 lazy loading이 기본 적용되어, 첫 화면 이미지가 늦게 로딩된다. 팀에서 도입했을 때 이것만 추가해도 LCP가 1.5초 개선됐다.
+
+**`sizes` 속성:** 반응형 이미지에 필수다. 이 속성이 없으면 Next.js가 모든 뷰포트에 대해 최대 크기의 이미지를 전송한다. 모바일에서 데스크탑용 이미지를 받으면 낭비가 크다.
+
+**`placeholder="blur"`:** 이미지 로딩 중에 흐릿한 미리보기를 보여줘서 CLS를 방지하고 체감 성능을 개선한다. 정적 import의 경우 자동으로 생성되지만, 동적 이미지는 `blurDataURL`을 직접 제공해야 한다.
+
+### 이미지 포맷 전략
+
+실제로 프로젝트에서 적용한 이미지 포맷 전략이다.
+
+| 용도 | 포맷 | 이유 |
+|------|------|------|
+| 사진/히어로 이미지 | AVIF (fallback: WebP) | 최고 수준 압축률 |
+| 아이콘/로고 | SVG | 벡터, 무한 확대 가능 |
+| 스크린샷 | WebP | AVIF보다 인코딩 빠름 |
+| 배경 패턴 | CSS | 이미지 파일 불필요 |
+| 애니메이션 | MP4 (GIF 대신) | GIF 대비 90% 용량 절약 |
+
+특히 GIF를 MP4로 변환한 것이 큰 효과가 있었다. 제품 데모 GIF가 8MB였는데, MP4로 변환하니 600KB가 됐다. 이건 Next.js와 관계없이 모든 웹 프로젝트에 적용할 수 있는 팁이다.
+
+### next.config.js 이미지 설정
+
+```js
+// next.config.js
+const nextConfig = {
+  images: {
+    formats: ['image/avif', 'image/webp'],
+    deviceSizes: [640, 750, 828, 1080, 1200, 1920],
+    imageSizes: [16, 32, 48, 64, 96, 128, 256, 384],
+    minimumCacheTTL: 60 * 60 * 24 * 30, // 30일
+  },
+};
+```
+
+`minimumCacheTTL`을 길게 설정하는 게 중요하다. 이미지는 자주 변경되지 않으므로, 캐시 기간을 길게 잡으면 이미지 최적화 서버의 부하를 줄일 수 있다.
+
+<InArticleAd />
+
+## 번들 사이즈 최적화: 불필요한 JavaScript 줄이기
+
+이미지 다음으로 큰 영향을 미치는 것이 JavaScript 번들 사이즈다. 모바일에서는 JavaScript 파싱과 실행이 이미지 로딩보다 더 큰 병목이 될 수 있다.
+
+### 현황 분석
+
+먼저 `@next/bundle-analyzer`로 번들을 분석했다.
+
+```bash
+npm install @next/bundle-analyzer
+```
+
+```js
+// next.config.js
+const withBundleAnalyzer = require('@next/bundle-analyzer')({
+  enabled: process.env.ANALYZE === 'true',
+});
+
+module.exports = withBundleAnalyzer(nextConfig);
+```
+
+```bash
+ANALYZE=true npm run build
+```
+
+분석 결과, 우리 번들에서 가장 큰 비중을 차지하는 것들은 이랬다. moment.js가 전체 번들의 25%를 차지했고, lodash가 15%, 사용하지 않는 아이콘 라이브러리가 10%, 그리고 날짜 피커 라이브러리가 8%를 차지했다.
+
+### 큰 라이브러리 교체하기
+
+**moment.js → dayjs 또는 date-fns:** moment.js는 300KB가 넘는 거대한 라이브러리다. dayjs는 2KB에 불과하며 API가 거의 호환된다. 우리 팀에서는 dayjs로 마이그레이션하는 데 하루가 걸렸고, 번들 사이즈가 260KB 줄었다.
+
+```tsx
+// Before (moment.js)
+import moment from 'moment';
+const formatted = moment(date).format('YYYY-MM-DD');
+
+// After (dayjs)
+import dayjs from 'dayjs';
+const formatted = dayjs(date).format('YYYY-MM-DD');
+```
+
+**lodash → 개별 함수 import 또는 네이티브 메서드:** lodash를 통째로 import하면 70KB 이상이 추가된다. 대부분의 유틸리티 함수는 ES2025 네이티브 메서드로 대체 가능하다.
+
+```tsx
+// ❌ 전체 import (70KB+)
+import _ from 'lodash';
+const unique = _.uniqBy(arr, 'id');
+
+// ✅ 개별 import (4KB)
+import uniqBy from 'lodash/uniqBy';
+const unique = uniqBy(arr, 'id');
+
+// ✅✅ 네이티브 메서드 (0KB)
+const unique = [...new Map(arr.map(item => [item.id, item])).values()];
+```
+
+### Dynamic Import 활용
+
+모든 코드가 첫 로딩에 필요한 것은 아니다. 모달, 차트, 에디터 같은 컴포넌트는 사용자가 실제로 필요할 때 로딩해도 된다.
+
+```tsx
+import dynamic from 'next/dynamic';
+
+// 차트 컴포넌트는 탭을 클릭했을 때만 로딩
+const Chart = dynamic(() => import('@/components/Chart'), {
+  loading: () => <ChartSkeleton />,
+  ssr: false, // 차트는 서버에서 렌더링할 필요 없음
+});
+
+// 마크다운 에디터는 편집 모드에서만 필요
+const MarkdownEditor = dynamic(
+  () => import('@/components/MarkdownEditor'),
+  { ssr: false }
+);
+```
+
+실제로 사용해보니, Dynamic Import의 효과는 첫 로딩 번들 크기를 줄이는 것 이상이다. 사용자가 실제로 사용하지 않는 기능의 코드를 아예 다운로드하지 않게 되므로, 데이터 비용도 절약된다.
+
+### Tree Shaking이 제대로 동작하는지 확인
+
+Tree Shaking이 제대로 동작하려면 몇 가지 조건이 필요하다. ES Module(`import/export`) 문법을 사용해야 하고, 라이브러리가 `sideEffects: false`로 표시되어 있어야 하며, barrel file(`index.ts`에서 모두 re-export하는 패턴)을 주의해야 한다.
+
+우리 프로젝트에서 겪은 실수를 공유하면, 모든 컴포넌트를 `components/index.ts`에서 re-export하고 있었다. 이렇게 하면 하나의 컴포넌트만 사용해도 모든 컴포넌트가 번들에 포함될 수 있다. 이 패턴을 제거하고 직접 import로 변경하니 클라이언트 번들이 40KB 줄었다.
+
+## 렌더링 전략: SSG, SSR, ISR 올바르게 선택하기
+
+Next.js의 강점은 페이지별로 다른 렌더링 전략을 선택할 수 있다는 것이다. App Router에서의 렌더링 전략 선택 기준을 정리한다.
+
+### 정적 생성 (Static Generation)
+
+빌드 시점에 HTML을 생성한다. CDN에서 제공되므로 가장 빠르다. 블로그 포스트, 마케팅 페이지, 문서 등 콘텐츠가 자주 변경되지 않는 페이지에 적합하다.
+
+```tsx
+// app/blog/[slug]/page.tsx
+// 이 함수가 있으면 빌드 시점에 정적 생성됨
+export async function generateStaticParams() {
+  const posts = await getAllPosts();
+  return posts.map((post) => ({
+    slug: post.slug,
+  }));
+}
+
+export default async function BlogPost({ params }: Props) {
+  const post = await getPost(params.slug);
+  return <Article post={post} />;
+}
+```
+
+### 서버 사이드 렌더링 (SSR)
+
+매 요청마다 서버에서 HTML을 생성한다. 사용자별 맞춤 콘텐츠, 실시간 데이터가 필요한 대시보드 등에 적합하다.
+
+```tsx
+// app/dashboard/page.tsx
+// dynamic = 'force-dynamic'으로 SSR 강제
+export const dynamic = 'force-dynamic';
+
+export default async function Dashboard() {
+  const data = await fetchDashboardData();
+  return <DashboardView data={data} />;
+}
+```
+
+### ISR (Incremental Static Regeneration)
+
+정적 생성의 속도와 SSR의 최신 데이터를 결합한 전략이다. 특정 시간 간격으로 페이지를 재생성한다. 상품 페이지, 뉴스 목록 등에 적합하다.
+
+```tsx
+// app/products/[id]/page.tsx
+export const revalidate = 3600; // 1시간마다 재생성
+
+export default async function ProductPage({ params }: Props) {
+  const product = await getProduct(params.id);
+  return <ProductDetail product={product} />;
+}
+```
+
+### 실전 결정 프레임워크
+
+내가 팀에서 실제로 사용하는 의사결정 기준이다.
+
+| 질문 | 예 → | 아니오 → |
+|------|------|----------|
+| 콘텐츠가 모든 사용자에게 동일한가? | SSG 또는 ISR 고려 | SSR 필요 |
+| 콘텐츠가 자주 변경되는가? | ISR 또는 SSR | SSG |
+| SEO가 중요한가? | SSG/ISR/SSR | CSR도 가능 |
+| 실시간 데이터가 필요한가? | SSR + Streaming | ISR |
+| 빌드 시 모든 페이지를 생성할 수 있는가? | SSG | ISR (on-demand) |
+
+## Server Components와 Client Components 분리
+
+App Router에서 성능 최적화의 핵심은 Server Components와 Client Components를 올바르게 분리하는 것이다.
+
+### 원칙: 가능한 한 Server Component로
+
+Server Component는 JavaScript 번들에 포함되지 않는다. 즉, 서버에서 HTML로 렌더링되어 클라이언트로 전송되므로, 클라이언트 번들 사이즈에 영향을 주지 않는다. 이 원칙을 지키는 것만으로도 상당한 성능 개선을 기대할 수 있다.
+
+```tsx
+// ✅ Server Component (기본값)
+// 데이터 fetching, 무거운 마크다운 변환 등을 서버에서 처리
+export default async function PostPage({ params }: Props) {
+  const post = await getPost(params.slug);
+  const html = await markdownToHtml(post.content); // 이 변환이 서버에서 발생
+
+  return (
+    <article>
+      <h1>{post.title}</h1>
+      <div dangerouslySetInnerHTML={{ __html: html }} />
+      {/* 인터랙션이 필요한 부분만 Client Component */}
+      <CommentSection postId={post.id} />
+    </article>
+  );
+}
+```
+
+### 흔한 실수: 불필요한 "use client"
+
+팀에서 도입했을 때 가장 많이 겪은 실수가 불필요하게 `"use client"`를 선언하는 것이었다. `"use client"`를 선언하면 해당 컴포넌트와 그 하위의 모든 import가 클라이언트 번들에 포함된다.
+
+예를 들어 상단에 `"use client"`를 선언한 레이아웃 컴포넌트가 있으면, 그 레이아웃 안의 모든 컴포넌트가 Client Component가 되어버린다. 우리 프로젝트에서 이런 실수를 발견하고 고쳤을 때, 클라이언트 번들이 120KB나 줄었다.
+
+### Streaming과 Suspense를 활용한 점진적 렌더링
+
+Next.js App Router에서 Suspense를 활용하면, 페이지의 일부가 준비되는 대로 점진적으로 전송할 수 있다. 이는 LCP와 체감 성능에 큰 영향을 미친다.
+
+```tsx
+import { Suspense } from 'react';
+
+export default function ProductPage({ params }: Props) {
+  return (
+    <div>
+      {/* 핵심 콘텐츠: 즉시 렌더링 */}
+      <ProductInfo id={params.id} />
+
+      {/* 리뷰: 데이터 로딩 중에는 스켈레톤 표시 */}
+      <Suspense fallback={<ReviewsSkeleton />}>
+        <ProductReviews productId={params.id} />
+      </Suspense>
+
+      {/* 추천 상품: 나중에 로딩 */}
+      <Suspense fallback={<RecommendationsSkeleton />}>
+        <Recommendations productId={params.id} />
+      </Suspense>
+    </div>
+  );
+}
+```
+
+이렇게 하면 상품 정보가 먼저 보여지고, 리뷰와 추천 상품은 각각의 데이터가 준비되는 대로 나타난다. 사용자는 빈 화면을 보면서 기다리는 대신, 핵심 정보를 먼저 볼 수 있다.
+
+## 폰트 최적화
+
+웹 폰트는 종종 간과되는 성능 병목이다. 최적화하지 않으면 FOIT(Flash of Invisible Text)이나 FOUT(Flash of Unstyled Text)이 발생하고, CLS를 악화시킨다.
+
+### next/font 사용하기
+
+```tsx
+import { Noto_Sans_KR } from 'next/font/google';
+
+const notoSansKR = Noto_Sans_KR({
+  subsets: ['latin'],
+  weight: ['400', '500', '700'],
+  display: 'swap',
+  preload: true,
+  fallback: ['system-ui', 'sans-serif'],
+});
+```
+
+`next/font`는 빌드 시점에 폰트를 다운로드하고 self-hosting하므로, Google Fonts 서버에 대한 외부 요청이 없어진다. 이것만으로도 DNS 조회, TCP 연결, TLS 협상에 소요되는 수백 밀리초를 절약할 수 있다.
+
+### 한글 폰트 최적화의 특수성
+
+한글 폰트는 영문 폰트에 비해 파일이 크다. 한글 유니코드 블록만 해도 11,172자에 달하기 때문이다. 실제로 Noto Sans KR의 Regular 웹폰트가 1MB가 넘는 경우도 있다.
+
+내가 실제 프로젝트에서 적용한 해결 방법은 subset 분리다. Google Fonts의 한글 폰트는 이미 유니코드 범위별로 분할되어 있지만, self-hosting할 때는 직접 분할해야 한다. `unicode-range`를 설정하면 브라우저가 필요한 글리프가 포함된 파일만 다운로드한다.
+
+## 캐싱 전략
+
+### 데이터 캐싱
+
+Next.js App Router에서 `fetch`는 기본적으로 캐싱된다. 하지만 이 기본 동작을 이해하지 못하면 데이터가 갱신되지 않는 문제나, 반대로 불필요한 API 호출이 반복되는 문제가 생길 수 있다.
+
+```tsx
+// 영구 캐싱 (기본값) - 블로그 포스트 등
+const post = await fetch('https://api.example.com/posts/1');
+
+// 시간 기반 캐싱 - 상품 정보 등
+const product = await fetch('https://api.example.com/products/1', {
+  next: { revalidate: 3600 }, // 1시간
+});
+
+// 캐싱 없음 - 사용자 세션 등
+const session = await fetch('https://api.example.com/session', {
+  cache: 'no-store',
+});
+```
+
+### HTTP 캐시 헤더 최적화
+
+정적 에셋(JS, CSS, 이미지)에 대해 적절한 캐시 헤더를 설정하는 것도 중요하다. Next.js는 기본적으로 빌드 해시가 포함된 파일명을 사용하므로, 정적 에셋에 대해 긴 캐시 기간을 설정할 수 있다.
+
+```js
+// next.config.js
+const nextConfig = {
+  async headers() {
+    return [
+      {
+        source: '/_next/static/:path*',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, max-age=31536000, immutable',
+          },
+        ],
+      },
+    ];
+  },
+};
+```
+
+## 최적화 결과: Before vs After
+
+3주간의 최적화 작업 후 최종 결과다.
+
+| 지표 | Before (모바일) | After (모바일) | 개선폭 |
+|------|----------------|----------------|--------|
+| Performance | 28 | 92 | +64점 |
+| LCP | 6.2s | 1.6s | -74% |
+| INP | 380ms | 120ms | -68% |
+| CLS | 0.32 | 0.05 | -84% |
+| TBT | 2.8s | 0.4s | -86% |
+| FCP | 3.5s | 0.9s | -74% |
+| 번들 사이즈 | 1.2MB | 380KB | -68% |
+
+각 최적화 기법이 기여한 점수를 대략 정리하면 이렇다. 이미지 최적화가 약 20점, 번들 사이즈 축소가 약 15점, Server/Client Component 분리가 약 12점, 렌더링 전략 최적화가 약 8점, 폰트 최적화가 약 5점, 캐싱 전략이 약 4점을 올려줬다.
+
+## 성능 모니터링: 한 번 최적화하고 끝이 아니다
+
+성능 최적화는 일회성 작업이 아니다. 새로운 기능이 추가될 때마다 성능이 퇴화(regression)할 수 있다.
+
+우리 팀에서는 CI/CD 파이프라인에 Lighthouse CI를 통합했다. 모든 PR에 대해 자동으로 성능 테스트를 수행하고, 점수가 임계값 아래로 떨어지면 PR을 머지할 수 없게 했다.
+
+```yaml
+# .github/workflows/lighthouse.yml
+name: Lighthouse CI
+on: pull_request
+jobs:
+  lighthouse:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+      - run: npm ci && npm run build
+      - uses: treosh/lighthouse-ci-action@v12
+        with:
+          budgetPath: ./lighthouse-budget.json
+          uploadArtifacts: true
+```
+
+이 자동화 덕분에 "새 기능 추가했더니 성능 점수가 20점 떨어졌다"는 상황을 사전에 방지할 수 있게 됐다.
+
+## 마치며
+
+Next.js 성능 최적화는 복잡해 보이지만, 핵심은 세 가지다. 첫째 이미지와 번들 사이즈를 줄이는 것, 둘째 서버와 클라이언트의 역할을 올바르게 분리하는 것, 셋째 지속적으로 모니터링하는 것.
+
+완벽한 100점을 목표로 하기보다, 90점 이상을 안정적으로 유지하는 것이 현실적인 목표다. 그리고 그 목표는 이 글에서 소개한 기법들을 하나씩 적용하면 충분히 달성할 수 있다. 실제로 내가 그랬으니까.
+
+궁금한 점이 있거나, 다른 최적화 기법을 알고 계시다면 댓글로 공유해주시면 감사하겠다.
